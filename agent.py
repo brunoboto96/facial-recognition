@@ -25,6 +25,7 @@ class CNN():
         self.buildGraph()
         self.buildLoss()
         self.tensorboardStats()
+        self.accuracy()
         self.sess.run(tf.global_variables_initializer())
 
     def buildGraph(self):
@@ -46,7 +47,7 @@ class CNN():
         self.out=nn.fully_connected(self.l5, self.num_outputs, activation_fn=tf.nn.softmax)
     
     def buildLoss(self):
-        self.labels=tf.placeholder(tf.int32)
+        self.labels=tf.placeholder(tf.int64)
         #convert to 1 hot encode
         self.hot_encoded=tf.one_hot(self.labels, self.num_outputs)
         self.loss=tf.reduce_mean(-tf.reduce_sum(self.hot_encoded*tf.log(self.out + 1e-9) + (1-self.hot_encoded)*tf.log(1-self.out + 1e-9), axis=-1))
@@ -61,8 +62,11 @@ class CNN():
             tf.summary.scalar('loss', self.loss)
         ])
 
-        self.avgRew=tf.placeholder(tf.float32)
+        self.acc=tf.placeholder(tf.float32)
         self.testing=tf.summary.merge([
-            tf.summary.scalar('accuracy', self.avgRew)
+            tf.summary.scalar('accuracy', self.acc)
         ])
 
+    def accuracy(self):
+        self.predicts=tf.argmax(self.out, axis=-1)
+        self.accuracy=tf.reduce_mean(tf.cast(tf.equal(self.predicts, self.labels), tf.float32))

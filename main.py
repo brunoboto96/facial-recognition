@@ -1,67 +1,44 @@
-import os
-import matplotlib.pyplot as plt
-from PIL import Image
 import numpy as np
 from agent import CNN
 import tensorflow as tf
-#Import images into the program
-'''
-First retrieve the number of images in the dataset. Store them in a list to create 
-the index used as labels. For example, the image as index 0 is goign to be the label 0
+from preprocessing import preprocessing, dataAugmentation
 
-Then, iterate again over the images in order to assign each image to its label.
+X_train, X_test, y_train, y_test=preprocessing('images')
 
 
-'''
-persons=[]
-labels=[]
-imagesData=[]
-#Iterate through the images to retrieve the possible labels and 
-#open the images as matrix into the program
-for img in os.listdir('images'):
-    myImg=Image.open('images/'+img)
-    imagesData.append(np.asarray(myImg))
-    if(img[5:7] in persons):
-        continue
-    else:
-        persons.append(img[5:7])
-
-
-for img in os.listdir('images'):
-    labels.append(persons.index(img[5:7]))
-
-print(len(persons))
-print(len(labels))
-print(len(imagesData))
-
-#divide in train-accuracy dataset (data augmentation)
-
-x1=imagesData[:int(len(imagesData)*0.75)]
-y1=labels[:int(len(labels)*0.75)]
-x2=imagesData[int(len(imagesData)*0.75):]
-y2=labels[int(len(labels)*0.75):]
-
-#train the moddel
+#Create the session where the graph can be run
 with tf.Session() as sess:
-    cnn=CNN(sess)
-    step=0
+    #create the graph
+    cnn=CNN(sess, 'v1')
 
-    for i in range(1000):
-        print('Training epoch ({}/{})'.format(i, 1000))
-        for startBatch in range(0, len(x1), 32):
-            endBatch=startBatch+32
-            _, summ=sess.run([cnn.opt, cnn.training], feed_dict={cnn.X: np.expand_dims(x1[startBatch:endBatch], axis=-1),
-                                                                cnn.labels: y1[startBatch:endBatch]})
-            cnn.file.add_summary(summ, step)
-            step+=1
+    step=0
+    #train the model 1000 times
+    for i in range(1000+1):
+        print('Training epoch ({}/{})'.format(i, 1000+1))
+        #Sample 32 examples (mini-batch) from the training images to train the network
+        idxs=np.random.choice(X_train.shape[0], 32)
+        batchInput=X_train[idxs]
+        batchLabels=y_train[idxs]
+
+        #Augment the real images like crop, flip, noise, translate, rotate..
+        #batchTrain=dataAugmentation(X_train[startBatch:endBatch])
+
+        #feed the 32 examples as well their labels into the model and train it
+        _, summ=sess.run([cnn.opt, cnn.training], feed_dict={cnn.X: batchInput,
+                                                            cnn.labels: batchLabels})
+        cnn.file.add_summary(summ, step)
+        step+=1
+        #every 5 times, use the test examples to see if the model is learning
         if i%5==0:
             print('testing..')
-            acc_list=[]
-            for startBatch in range(0, len(x2), 32):
-                endBatch=startBatch+32
-                pred=sess.run([cnn.accuracy], feed_dict={cnn.X: np.expand_dims(x2[startBatch:endBatch], axis=-1),
-                                                        cnn.labels: y2[startBatch:endBatch]})
-                acc_list.append(pred)
-            summ=sess.run(cnn.testing, feed_dict={cnn.acc: np.mean(acc_list)})
+
+            idxs=np.random.choice(X_test.shape[0], 32)
+            batchInput=X_test[idxs]
+            batchLabels=y_test[idxs]
+
+            summ=sess.run(cnn.testing, feed_dict={cnn.X: batchInput,
+                                                  cnn.labels: batchLabels})
             cnn.file.add_summary(summ, step)
-            print(step)
+
+            #Save the model weights
+            cnn.save()

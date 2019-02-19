@@ -3,70 +3,75 @@ import tensorflow as tf
 import numpy as np
 flags = tf.app.flags
 FLAGS = flags.FLAGS
-'''
-(10, 77, 68, 1)
-(10, 77, 68, 32)
-(10, 39, 34, 32)
-(10, 20, 17, 64)
-(10, 10, 9, 64)
-(10, 4, 4, 64)
-(10, 1024)
-(10, 256)
-(10, 30)
-'''
+
+#
+#normalize input
+#batch norm
+#leaky relu
+#drpout
+#regularization
+#dataaugmentation
 
 class CNN():
-    def __init__(self, sess):
+    def __init__(self, sess, model_v, test=False):
         self.sess=sess
         self.X=tf.placeholder(tf.float32, shape=[None, 77, 68, 1])
         self.num_outputs=30
         self.model_folder='CNN'
+        self.model_v=model_v
+
 
         self.buildGraph()
         self.buildLoss()
-        self.tensorboardStats()
         self.accuracy()
-        self.sess.run(tf.global_variables_initializer())
+        self.tensorboardStats()
+
+        self.saver=tf.train.Saver()
+        if (test):
+            self.saver.restore(self.sess, self.model_folder+"/"+self.model_v+"graph.ckpt")
+        else:
+            self.sess.run(tf.global_variables_initializer())
+
+
 
     def buildGraph(self):
-        x_norm=self.X/255.
-        self.l1=nn.conv2d(x_norm, 32, 5)
-        self.l2=nn.conv2d(self.l1, 32, 5, stride=2)
-        self.l3=nn.conv2d(self.l2, 64, 5, stride=2)
-        self.l4=nn.conv2d(self.l3, 64, 3, stride=2)
-        self.l4_pool=nn.max_pool2d(self.l4, 3)
+        x_norm=self.X
+        self.l1=nn.conv2d(x_norm, 32, 7)
+        #self.l2=nn.conv2d(self.l1, 64, 7, stride=2)
+        #self.l3=nn.conv2d(self.l2, 128, 3, stride=2)
+        #self.l4=nn.conv2d(self.l3, 256, 3, stride=2)
 
         #flat the matrix
-        self.flatten_l4=nn.flatten(self.l4_pool)
+        self.flatten=nn.flatten(self.l1)
 
-        #apply dropout to avoid overfit
-        drop=nn.dropout(self.flatten_l4)
-
-        self.l5=nn.fully_connected(drop, 256)
+        self.l5=nn.fully_connected(self.flatten, 128)
 
         self.out=nn.fully_connected(self.l5, self.num_outputs, activation_fn=tf.nn.softmax)
     
     def buildLoss(self):
-        self.labels=tf.placeholder(tf.int64)
+        self.labels=tf.placeholder(tf.int64, name='labels')
         #convert to 1 hot encode
         self.hot_encoded=tf.one_hot(self.labels, self.num_outputs)
-        self.loss=tf.reduce_mean(-tf.reduce_sum(self.hot_encoded*tf.log(self.out + 1e-9) + (1-self.hot_encoded)*tf.log(1-self.out + 1e-9), axis=-1))
-        #self.loss=self.hot_encoded*tf.log(self.out + 1e-9) + (1-self.hot_encoded)*tf.log(1-self.out + 1e-9)
+        with tf.variable_scope('loss'):
+            self.loss=tf.reduce_mean(-tf.reduce_sum(self.hot_encoded*tf.log(self.out + 1e-9) + (1-self.hot_encoded)*tf.log(1-self.out + 1e-9), axis=-1))
+        
+        with tf.variable_scope('optimizer'):
+            self.opt=tf.train.AdamOptimizer(learning_rate=1e-4).minimize(self.loss)
 
-        self.opt=tf.train.AdamOptimizer(learning_rate=1e-4).minimize(self.loss)
-    
+    def accuracy(self):
+        self.predicts=tf.argmax(self.out, axis=-1)
+        self.accuracy=tf.reduce_mean(tf.cast(tf.equal(self.predicts, self.labels), tf.float32))
+
     def tensorboardStats(self):
-        self.file=tf.summary.FileWriter(self.model_folder, self.sess.graph)
+        self.file=tf.summary.FileWriter(self.model_folder+'/'+self.model_v, self.sess.graph)
         
         self.training=tf.summary.merge([
             tf.summary.scalar('loss', self.loss)
         ])
 
-        self.acc=tf.placeholder(tf.float32)
         self.testing=tf.summary.merge([
-            tf.summary.scalar('accuracy', self.acc)
+            tf.summary.scalar('accuracy', self.accuracy)
         ])
 
-    def accuracy(self):
-        self.predicts=tf.argmax(self.out, axis=-1)
-        self.accuracy=tf.reduce_mean(tf.cast(tf.equal(self.predicts, self.labels), tf.float32))
+    def save(self):
+        self.saver.save(self.sess, self.model_folder+'/'+self.model_v+'graph.ckpt')

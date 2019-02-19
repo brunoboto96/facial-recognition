@@ -2,7 +2,8 @@ import numpy as np
 import tensorflow as tf 
 from agent import CNN
 '''
-This script is used to the the CNN if othere aren't bug
+This script is used to test the CNN. It generates random data 
+in order to see if the network converges to a solution.
 '''
 
 inputImg=np.random.randint(0,255,(32,77,68,1))

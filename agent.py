@@ -35,16 +35,16 @@ class CNN():
 
 
     def buildGraph(self):
-        x_norm=self.X
-        self.l1=nn.conv2d(x_norm, 32, 7)
-        #self.l2=nn.conv2d(self.l1, 64, 7, stride=2)
-        #self.l3=nn.conv2d(self.l2, 128, 3, stride=2)
+        x_norm=self.X/255.
+        self.l1=nn.conv2d(x_norm, 32, 7, stride=2)
+        self.l2=nn.conv2d(self.l1, 64, 7, stride=2)
+        self.l3=nn.conv2d(self.l2, 128, 5, stride=2)
         #self.l4=nn.conv2d(self.l3, 256, 3, stride=2)
 
         #flat the matrix
-        self.flatten=nn.flatten(self.l1)
+        self.flatten=nn.flatten(self.l3)
 
-        self.l5=nn.fully_connected(self.flatten, 128)
+        self.l5=nn.fully_connected(self.flatten, 256)
 
         self.out=nn.fully_connected(self.l5, self.num_outputs, activation_fn=tf.nn.softmax)
     

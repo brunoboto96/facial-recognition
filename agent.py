@@ -24,12 +24,12 @@ class CNN():
         self.buildGraph()
         self.buildLoss()
         self.accuracy()
-        self.tensorboardStats()
 
         self.saver=tf.train.Saver()
         if (test):
             self.saver.restore(self.sess, self.model_folder+"/"+self.model_v+"graph.ckpt")
         else:
+            self.tensorboardStats()
             self.sess.run(tf.global_variables_initializer())
 
 

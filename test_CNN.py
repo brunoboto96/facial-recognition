@@ -11,7 +11,9 @@ with tf.Session() as sess:
     print(inputImg.shape)
     cnn=CNN(sess)
     for i in range(500):
+        
         _, summ=sess.run([cnn.opt, cnn.training], feed_dict={cnn.X: inputImg,
                                                              cnn.labels: labels})
         cnn.file.add_summary(summ, i)
+        print(summ)
 

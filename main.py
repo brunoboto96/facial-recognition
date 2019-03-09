@@ -13,9 +13,9 @@ test_data_path = 'images/test'
 all_data_path = 'images/allcat'
 img_rows = 68
 img_cols = 77
-epochs = 5
+epochs = 200
 batch_size = 32
-num_of_train_samples = 1500*0.1
+num_of_train_samples = 1500*0.5
 num_of_test_samples = 1500*0.5
 
 #Image Generator
@@ -24,7 +24,7 @@ train_datagen = ImageDataGenerator(rescale=1. / 255,
                                    width_shift_range=0.2,
                                    height_shift_range=0.2,
                                    shear_range=0.2,
-                                   validation_split=0.1,
+                                   validation_split=0.5,
                                    zoom_range=0.2,
                                    horizontal_flip=True,
                                    fill_mode='nearest')
@@ -60,21 +60,29 @@ print(validation_generator.class_indices)
 
 # Build model
 model = Sequential()
-model.add(Convolution2D(128, (3, 3), input_shape=(img_rows, img_cols, 1), padding='valid'))
+model.add(Convolution2D(32, (3, 3), input_shape=(img_rows, img_cols, 1), padding='valid'))
+model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+
+model.add(Convolution2D(32, (3, 3), input_shape=(img_rows, img_cols, 1), padding='valid'))
+model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+
+model.add(Convolution2D(64, (3, 3), input_shape=(img_rows, img_cols, 1), padding='valid'))
 model.add(Activation('relu'))
 model.add(MaxPooling2D(pool_size=(2, 2)))
 
 model.add(Flatten())
 model.add(Dense(16))
 model.add(Activation('relu'))
-model.add(Dropout(0.5))
+#model.add(Dropout(0.5))
 model.add(Dense(128))
 model.add(Activation('relu'))
 model.add(Dense(30))
 model.add(Activation('softmax'))
 
 model.compile(loss='categorical_crossentropy',
-              optimizer='adam',
+              optimizer='Adam',
               metrics=['accuracy'])
 
 #Train

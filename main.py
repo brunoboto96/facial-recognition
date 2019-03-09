@@ -1,62 +1,110 @@
-import os
-import matplotlib.pyplot as plt
-from PIL import Image
 import numpy as np
-from keras.callbacks import TensorBoard
+from keras import backend as K
 from keras.models import Sequential
-from keras.layers import Activation, Dropout, Flatten, Dense
+from keras.layers.core import Dense, Dropout, Activation, Flatten
+from keras.layers.convolutional import Convolution2D, MaxPooling2D
 from keras.preprocessing.image import ImageDataGenerator
-from keras.layers import Convolution2D, MaxPooling2D, ZeroPadding2D
-from keras import optimizers
-from IPython.display import display
+from sklearn.metrics import classification_report, confusion_matrix
+import matplotlib.pyplot as plt
+
+#Start
+train_data_path = 'images/train/cat'
+test_data_path = 'images/test'
+all_data_path = 'images/allcat'
+img_rows = 68
+img_cols = 77
+epochs = 5
+batch_size = 32
+num_of_train_samples = 1500*0.1
+num_of_test_samples = 1500*0.5
+
+#Image Generator
+train_datagen = ImageDataGenerator(rescale=1. / 255,
+                                   rotation_range=40,
+                                   width_shift_range=0.2,
+                                   height_shift_range=0.2,
+                                   shear_range=0.2,
+                                   validation_split=0.1,
+                                   zoom_range=0.2,
+                                   horizontal_flip=True,
+                                   fill_mode='nearest')
+
+test_datagen = ImageDataGenerator(rescale=1. / 255,validation_split=0.5)
+
+testimg_datagen = ImageDataGenerator()
+testimg_generator = testimg_datagen.flow_from_directory('images/testimg',
+                                         target_size=(img_rows, img_cols),
+                                         color_mode='grayscale',
+                                         class_mode='categorical',
+                                         batch_size=1) 
+
+print(testimg_generator.class_indices)
+train_generator = train_datagen.flow_from_directory(all_data_path,
+                                                    target_size=(img_rows, img_cols),
+                                                    batch_size=batch_size,
+                                                    save_to_dir='images/saved/training',
+                                                    subset='training',
+                                                    color_mode='grayscale',
+                                                    class_mode='categorical')
+print(train_generator.class_indices)
+
+validation_generator = test_datagen.flow_from_directory(all_data_path,
+                                                        target_size=(img_rows, img_cols),
+                                                        batch_size=batch_size,
+                                                        save_to_dir='images/saved/validation',
+                                                        subset='validation',
+                                                        color_mode='grayscale',
+                                                        class_mode='categorical')
+
+print(validation_generator.class_indices)
+
+# Build model
+model = Sequential()
+model.add(Convolution2D(128, (3, 3), input_shape=(img_rows, img_cols, 1), padding='valid'))
+model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+
+model.add(Flatten())
+model.add(Dense(16))
+model.add(Activation('relu'))
+model.add(Dropout(0.5))
+model.add(Dense(128))
+model.add(Activation('relu'))
+model.add(Dense(30))
+model.add(Activation('softmax'))
+
+model.compile(loss='categorical_crossentropy',
+              optimizer='adam',
+              metrics=['accuracy'])
+
+#Train
+model.fit_generator(train_generator,
+                    steps_per_epoch=num_of_train_samples // batch_size,
+                    epochs=epochs,
+                    validation_data=validation_generator,
+                    shuffle=True,
+                    validation_steps=num_of_test_samples // batch_size)
+
+model.save("model/model_test.model")
 
 
-classifier = Sequential()
+print("\n\nTESTING********\n")
+Y_pred = model.predict_generator(testimg_generator, 1 // batch_size+1)
+y_pred = np.argmax(Y_pred, axis=1)
 
-classifier.add(Convolution2D(32,3,2,input_shape=(68,77,3),activation = 'relu'))
-classifier.add(Convolution2D(64,3,2,activation = 'relu'))
-classifier.add(Convolution2D(64,3,2,activation = 'relu'))
-classifier.add(Convolution2D(128,3,2,activation = 'relu'))
-
-classifier.add(MaxPooling2D(pool_size = (2,2)))
-
-classifier.add(Flatten())
-
-classifier.add(Dense(output_dim =128, activation = 'relu'))
-classifier.add(Dense(output_dim =30, activation = 'softmax'))
-
-classifier.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = ['accuracy'])
+#print(Y_pred)
+print('Class is: ',*y_pred)
 
 
-train_datagen = ImageDataGenerator(
-    rescale=1./255,
-    shear_range=0.2,
-    zoom_range=0.2,
-    horizontal_flip=True)
+print("\nTESTING********\n\n")
 
-test_datagen = ImageDataGenerator(rescale=1./255)
+#Confution Matrix and Classification Report
+print( num_of_test_samples // batch_size+1)
+print(num_of_test_samples)
+Y_pred = model.predict_generator(validation_generator, num_of_test_samples // batch_size+1)
+y_pred = np.argmax(Y_pred, axis=1)
 
-training_set = train_datagen.flow_from_directory(
-    'images/train/cat',
-    class_mode='categorical',
-    target_size=(68,77),
-    batch_size=32)
-
-test_set = train_datagen.flow_from_directory(
-    'images/test',
-    target_size=(68,77),
-    batch_size=32,
-    class_mode='categorical')
-
-
-
-classifier.fit_generator(
-    training_set,
-    steps_per_epoch=1000,
-    epochs=10,
-    validation_data=test_set,
-    validation_steps=100,
-    callbacks=[TensorBoard(log_dir='logs', histogram_freq=0, batch_size=32, write_graph=True, write_grads=True, write_images=True, embeddings_freq=0, embeddings_layer_names=None, embeddings_metadata=None, embeddings_data=None, update_freq='batch')])
-
-
-classifier.save_weights("CNN/model_w.h5")
+print('Confusion Matrix')
+print(confusion_matrix(validation_generator.classes, y_pred))
+print('Classification Report')
+print(classification_report(validation_generator.classes, y_pred))

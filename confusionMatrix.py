@@ -21,22 +21,40 @@ with tf.Session() as sess:
         endBatch=startBatch+32
         pred=sess.run([cnn.predicts], feed_dict={cnn.X: X_test[startBatch:endBatch],
                                                  cnn.labels: y_test[startBatch:endBatch]})
+        #Retrieve the examples where the prediction doesn't match the label
         wrong_preds=np.argwhere(y_test[startBatch:endBatch]!=pred)
         if len(wrong_preds)!=0:
+            #for each wrong prediction, retrieve the example img, the label and the prediction to use in the heatmap
             for idx in wrong_preds[0]:
                 prediction={}
                 prediction['label']=y_test[startBatch:endBatch][idx]
                 prediction['predicted']=pred[0][idx]
                 prediction['img']=X_test[startBatch:endBatch][idx]
                 predictions.append(prediction)
-    
+
+    #Compute confusion matrix and tell the examples where the prediction is wrong
     for pred in predictions:
         confusionMatrix[pred['label']][pred['predicted']] +=1
-        print("true: {}, predicted: {}".format(pred['label'], pred['predicted']))
-        print(pred['img'][:,:,0].shape)
-        #plt.imshow(pred['img'][:,:,0], cmap='gray')
-        #plt.show()
+        print("True person idx: {}, Predicted person idx: {}".format(pred['label'], pred['predicted']))
+    '''
+    #ONLY FOR CREATING THE IMAGE HERE
+    preds=[predictions[12], predictions[-1]]
+    f, axarr = plt.subplots(2,2)
+    for i in range(2):
+        axarr[i,0].set_xticks([])
+        axarr[i,0].set_yticks([])
+        axarr[i,0].set_title('Input Person '+ str(preds[i]['label']))
+        axarr[i,0].imshow(preds[i]['img'][:,:,0])
+        #get image of predicted person
+        axarr[i,1].set_xticks([])
+        axarr[i,1].set_yticks([])
+        axarr[i,1].set_title('Predicted Person ' + str(preds[i]['predicted']))
+        idx=np.argwhere(y_test==preds[i]['predicted'])[0][0]
+        axarr[i,1].imshow(X_test[idx][:,:,0])
+    plt.show()
+    '''
 
+    #Create heatmap
     gap=1/(np.max(confusionMatrix)+1)
     colorscale=[]
     colors=['rgb(0, 0, 110)', 'rgb(0, 147, 255)','rgb(191, 99, 9)', 'rgb(235, 213, 6)','rgb(254, 0, 0)']
@@ -50,7 +68,7 @@ with tf.Session() as sess:
 
     x=[i+1 for i in range(30)]
     y=x[::-1]
-    trace = go.Heatmap(z=confusionMatrix,
+    trace = go.Heatmap(z=np.flip(confusionMatrix, axis=0),
                        x=x,
                        y=y,
                        xgap=3,
@@ -71,5 +89,3 @@ with tf.Session() as sess:
     )
     fig=go.Figure(data=data, layout=layout)
     py.iplot(fig, filename='basic-heatmap')
-
-    print(confusionMatrix)
